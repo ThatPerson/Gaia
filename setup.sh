@@ -1,0 +1,2 @@
+mkdir output
+make
