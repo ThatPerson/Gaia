@@ -66,7 +66,7 @@ float temperature_map[LANDSCAPE_X][LANDSCAPE_Y];
 
 char filename[500];
 
-float sigmaconstant = 5.67*pow(10, -8);
+float sigmaconstant;
 float solar_intensity = 1366; // Wm^-2
 
 float dominance = 0.5;
@@ -545,7 +545,7 @@ void run(int n) {
 
 	}
 	
-	divergence = divergence/num_daisies;
+	divergence = divergence/num_daisies; // *****This divergence is not accurate******** - a much better way is to turn on verbose and read the pd files.
 	
 	for (i = 0; i < num_daisies; i++) {
 		sd_divergence += pow(abs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
@@ -654,6 +654,7 @@ void output_tmap(int n) {
 
 int main(int argc, char* argv[]) {
 	srand(time(NULL));
+	sigmaconstant = 5.67*pow(10, -8);
 	if (-1 == parse_settings(argc, argv))
 		return 1;
 	setup();
@@ -676,7 +677,9 @@ int main(int argc, char* argv[]) {
 		if (runprint == 1)
 			printf("Running %d (%0.8f)...\n", i, radiation_intensity);
 		//radiation_intensity += 0.05*((PI * i / (100*pow((2000-(i/100)), 2))) + (PI / (2000-(i/100)))) * cos((PI * i)/(2000-(i/100)));
-		radiation_intensity = 1 + ((60000/200000) * sin((3.14*(float) pl)/4000));
+		float psdsd = (float)60000/200000;
+		radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/4000));
+
 
 		if (i > 6000)
 			pl++;
