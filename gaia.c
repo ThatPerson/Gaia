@@ -67,7 +67,7 @@ float temperature_map[LANDSCAPE_X][LANDSCAPE_Y];
 
 char filename[500];
 
-float sigmaconstant = 5.67*pow(10, -8);
+float sigmaconstant;
 float solar_intensity = 1366; // Wm^-2
 
 float dominance = 0.5;
@@ -657,6 +657,7 @@ int main(int argc, char* argv[]) {
 	srand(time(NULL));
 	if (-1 == parse_settings(argc, argv))
 		return 1;
+	sigmaconstant = 5.67*pow(10, -8);		
 	setup();
 	
 	/* Open the files required for constant output */	
