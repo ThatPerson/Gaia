@@ -24,6 +24,8 @@ extern int runprint;
 extern float dominance;
 extern float sex_freq;
 
+extern int peak_verb;
+
 extern float oscillation_wavelength;
 extern int edea;
 
@@ -53,6 +55,7 @@ int parse_settings(int argc, char*argv[]) {
 			case 'l': sim_length = (int) get_arg(argv[i], 1); break;
 			case 'v': verbose = 1; verbose_s = (int) get_arg(argv[i], 1); break; //
 			case 'u': runprint = 0; break; //
+			case 'b': peak_verb = 1; break;
 			case 'o': 
 				switch (argv[i][1]) {
 					case 's': sex_freq = (float) get_arg(argv[i], 2); break;

@@ -20,12 +20,13 @@ int initial_progeny = 2;
 int initial_pop = 10;
 int cheat = 0;
 int edea = 0;
+int peak_verb = 0;
 
 //float mutation_deviation[7] = {0.05, 0.25, 0, 0.0, 0, 0.25, 0.05};
 //float mutation_deviation[7] = {0.01, 0.001, 0, 0, 0, 0.001, 0.01};
 float mutation_deviation[7] = {0.05, 0.1, 0, 0, 0, 0.1, 0.05};
 float goldschmidt_mm[7] = {0.5, 4, 0, 0, 0, 4, 0.5};
-int goldschmidt_freq = 1; // times in 10000
+int goldschmidt_freq = 0; // times in 10000
 int age_of_death = 50;
 float mean_radiation_intensity = 1;
 float radiation_intensity = 1;
@@ -66,7 +67,7 @@ float temperature_map[LANDSCAPE_X][LANDSCAPE_Y];
 
 char filename[500];
 
-float sigmaconstant;
+float sigmaconstant = 5.67*pow(10, -8);
 float solar_intensity = 1366; // Wm^-2
 
 float dominance = 0.5;
@@ -191,7 +192,7 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 		int new_x = p[randoms[9]]->pos_x + x_delta;
 		int new_y = p[randoms[10]]->pos_y + y_delta;
 
-		if (check_pos(new_x, new_y) != 1 && new_x < LANDSCAPE_X && new_x > 0 && new_y > 0 && new_y < LANDSCAPE_Y) {
+		if (check_pos(new_x, new_y) != 1 && new_x < LANDSCAPE_X && new_x >= 0 && new_y >= 0 && new_y < LANDSCAPE_Y) {
 
 			progenitors[current].pos_x = new_x;
 			progenitors[current].pos_y = new_y;
@@ -654,7 +655,6 @@ void output_tmap(int n) {
 
 int main(int argc, char* argv[]) {
 	srand(time(NULL));
-	sigmaconstant = 5.67*pow(10, -8);
 	if (-1 == parse_settings(argc, argv))
 		return 1;
 	setup();
@@ -669,6 +669,11 @@ int main(int argc, char* argv[]) {
 	fprintf(vertical, "n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, num_alive, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, cheat\n");
 	int i, p, q, l;
 	int pl = 0;
+	int last = 0;
+	float radiation_intensity_next, radiation_intensity_last;
+	
+	int going_down = 0, going_up = 0;
+
 	for (i = 0; i < sim_length; i++) {
 		if (i == 3 && num_alive == 0 && sexual == 1) {
 			// None of the initial progeny are in the right place. Return -1 and start over.
@@ -677,12 +682,36 @@ int main(int argc, char* argv[]) {
 		if (runprint == 1)
 			printf("Running %d (%0.8f)...\n", i, radiation_intensity);
 		//radiation_intensity += 0.05*((PI * i / (100*pow((2000-(i/100)), 2))) + (PI / (2000-(i/100)))) * cos((PI * i)/(2000-(i/100)));
+
 		float psdsd = (float)60000/200000;
-		radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/4000));
-
-
-		if (i > 6000)
+		
+		
+		float qwe = 400 - (pl/36);
+		//radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe));
+		radiation_intensity_last = radiation_intensity;
+		radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe));
+		if (i > 500)
 			pl++;
+			
+		if (peak_verb == 1) {
+			radiation_intensity_next = 1 + (psdsd * sin((3.14*(float) (pl+1))/(400 - ((pl+1)/36))));
+			going_down = 0;
+			going_up = 0;
+
+			if (radiation_intensity > radiation_intensity_next) {
+				going_down = 1;
+			}
+			if (radiation_intensity > radiation_intensity_last) {
+				going_up = 1;
+
+			}
+			if (going_down == 1 && going_up == 1 && (i - last) > 200) {
+				output_map(i);
+				output_tmap(i);
+				last = i;
+			}
+
+		}
 		
 		
 		if (oscillation_wavelength != 0) 
@@ -694,6 +723,8 @@ int main(int argc, char* argv[]) {
 			output_map(i);
 			output_tmap(i);
 		}
+		
+		
 
 		// Shrink array by removing dead daisies.
 		l = num_daisies;
