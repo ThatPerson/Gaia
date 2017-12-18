@@ -5,8 +5,8 @@ You need to create an output/ folder in order for it to work.
 
 In order to setup Daisyworld run the following commands;
 
-~~~bash
+```bash
 git clone https://github.com/ThatPerson/Gaia.git && cd Gaia && chmod +x setup.sh && ./setup.sh
-~~~
+```
 
 Now ./gaia can be used as detailed in the manual.
