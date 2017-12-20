@@ -1,3 +1,37 @@
+/*----------------------------------------------------------------------*
+ * File:    gaia.c                                                      *
+ *                                                                      *
+ * Purpose: Simulate a 2-D cellular automata model "DEAsy-World".       *
+ *                                                                      *
+ *                                                                      *
+ * Author:  Ben Tatman                                                  *
+ *          University of Cambridge                                     *
+ *          ben@tatmans.co.uk                                           * 
+ *                                                                      *
+ * License: Copyright 2017-2018 Ben Tatman                              *
+ * Permission is hereby granted, free of charge, to any person          *
+ * obtaining a copy of this software and associated documentation files *
+ * (the "Software"), to deal in the Software without restriction,       *
+ * including without limitation the rights to use, copy, modify, merge, *
+ * publish, distribute, sublicense, and/or sell copies of the Software, *
+ * and to permit persons to whom the Software is furnished to do so,    *
+ * subject to the following conditions:                                 *
+ *                                                                      *
+ * The above copyright notice and this permission notice shall be       *
+ * included in all copies or substantial portions of the Software.      *
+ *                                                                      *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,      *
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF   *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND                *
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS  *
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN   *
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN    *
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE     * 
+ * SOFTWARE.                                                            *
+ *                                                                      *
+ * History: 20-Dec-2017, version 1.0                                    *
+ *----------------------------------------------------------------------*/
+
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
@@ -6,12 +40,21 @@
 #include <string.h>
 
 #include "parse.c"
+
+/*----------------------------------------------------------------------*
+ * Constants                                                            *
+ *----------------------------------------------------------------------*/
+
 #define LANDSCAPE_X 50
 #define LANDSCAPE_Y 50
 #define CARRYING_CAP 10000
 #define MAX_PROGENY 10
 #define PI 3.141592653
 
+/*----------------------------------------------------------------------*
+ * Global variables                                                     *
+ *----------------------------------------------------------------------*/
+ 
 int initial_mutation_rate = 0.05 * 1000; // Times in 1000
 float initial_colour = 0.5;
 float initial_t_opt = 25;
@@ -22,8 +65,6 @@ int cheat = 0;
 int edea = 0;
 int peak_verb = 0;
 
-//float mutation_deviation[7] = {0.05, 0.25, 0, 0.0, 0, 0.25, 0.05};
-//float mutation_deviation[7] = {0.01, 0.001, 0, 0, 0, 0.001, 0.01};
 float mutation_deviation[7] = {0.05, 0.1, 0, 0, 0, 0.1, 0.05};
 float goldschmidt_mm[7] = {0.5, 4, 0, 0, 0, 4, 0.5};
 int goldschmidt_freq = 0; // times in 10000
@@ -72,13 +113,24 @@ float solar_intensity = 1366; // Wm^-2
 
 float dominance = 0.5;
 
-/* Generates a random number between n and m inclusive */
+/*----------------------------------------------------------------------*
+ * Function: rng                                                        *
+ * Purpose:  Generates a random number between n and m                  *
+ * Params:   n = lower bound                                            *
+ *           m = upper bound                                            *
+ * Returns:  Random number from n to m inclusive                        *
+ *----------------------------------------------------------------------*/
 int rng(int n, int m) {
 	return n + rand()%(m-n+1);
 }
 
-/* Calculate the optimum temperature of a daisy, d, given a local temperature. 
- * Currently takes the allele closest to the local temperature. */
+/*----------------------------------------------------------------------*
+ * Function: t_opt                                                      *
+ * Purpose:  Calculates the optimum temperature for a given daisy       *
+ * Params:   d = pointer to a Daisy                                     *
+ *           temperature = local temperature                            *
+ * Returns:  Optimum temperature of daisy                               *
+ *----------------------------------------------------------------------*/
 float t_opt(struct Daisy * d, float temperature) {
 	if (edea == 1) {
 		float a = (dominance * d->t_opt[0]) + ((1-dominance) * d->t_opt[1]);
@@ -120,16 +172,34 @@ float t_opt(struct Daisy * d, float temperature) {
 	}
 }
 
+/*----------------------------------------------------------------------*
+ * Function: colour                                                     *
+ * Purpose:  Calculates the expressed colour of a daisy                 *
+ * Params:   d = pointer to a Daisy                                     *
+ * Returns:  Current colour of daisy                                    *
+ *----------------------------------------------------------------------*/
 float colour(struct Daisy *d) {
 	return dominance * d->colour[0] + (1-dominance) * d->colour[1];
 }
 
-/* Radiation gradient from pole to equator - uppermost polar region has lower solar insolation that bottom equatorial region */
+/*----------------------------------------------------------------------*
+ * Function: radiation_factor                                           *
+ * Purpose:  Calculates the radiation multiplier at a position on the   *
+ *           map.                                                       *
+ * Params:   n = number varying from 0 - 1 from top to bottom of map    *
+ * Returns:  Multiplier                                                 *
+ *----------------------------------------------------------------------*/
 float radiation_factor(float n) {
 	return 0.8 + 0.4*n;
 }
 
-/* Nutrient gradient - it's labelled as such but is in reality arbitrary. Controls the amount of resources acquired depending on position east to west (0 is west, 1 is east) */
+/*----------------------------------------------------------------------*
+ * Function: nutrient_gradient                                          *
+ * Purpose:  Calculates the nutrient multiplier at a position on the    *
+ *           map.                                                       *
+ * Params:   n = number varying from 0 - 1 from left to right of map    *
+ * Returns:  Multiplier                                                 *
+ *----------------------------------------------------------------------*/
 float nutrient_gradient(float n) {
 	return 1;
 } 
@@ -139,18 +209,28 @@ void vary_ri(void) {
 	radiation_intensity += 0;
 }
 
-
-
-/* Checks a position to see if a daisy is present. 
- * Returns 0 if the position is vacant, 1 is the position is filled. */
+/*----------------------------------------------------------------------*
+ * Function: check_pos                                                  *
+ * Purpose:  Checks a position to see if a daisy is present             *
+ * Params:   x = the x coordinate of input position                     *
+ *           y = the x coordinate of input position                     *
+ * Returns:  0 if the position is vacant, and                           *
+             1 if the position is filled                                *
+ *----------------------------------------------------------------------*/
 int check_pos(int x, int y) {
 	if (daisy_map[x][y] == NULL)
 		return 0; 
 	return 1;
 }
 
-/* Sexual reproduction. Pass array (p) containing pointers to two daisies, and a pointer to an array to put the progeny in.
- * It produces progeny using random mixing of the parental traits. */
+/*----------------------------------------------------------------------*
+ * Function: mate                                                       *
+ * Purpose:  Produces sexual progeny of two daisies.                    *
+ * Params:   p = array of pointers to parental daisies.                 *
+ *           progenitors = pointer to array of progeny                  *
+ *           v = unused                                                 *
+ * Returns:  Number of progeny produced                                 *
+ *----------------------------------------------------------------------*/
 int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 	assert(p);
 	assert(progenitors);
@@ -225,9 +305,14 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 	}
 	return current;
 }
-
-/* Sexual Reproduction.
- *  Checks the positions directly surrounding a reproducing daisy and if one is found which is suitable to reproduce then they produce progeny. */
+ 
+/*----------------------------------------------------------------------*
+ * Function: s_reproduce                                                *
+ * Purpose:  Locates a mate and reproduces sexually.                    *
+ * Params:   d = pointer to a daisy                                     *
+ *           progenitors = pointer to array of progeny                  *
+ * Returns:  Number of progeny produced                                 *
+ *----------------------------------------------------------------------*/
 int s_reproduce(struct Daisy*d, struct Daisy*progenitors) {
 	assert(d);
 	assert(progenitors);
@@ -271,9 +356,14 @@ int s_reproduce(struct Daisy*d, struct Daisy*progenitors) {
 
 	return current;
 }
-			
-/* Asexual reproduction.
- * Progeny are produced as clones of the current daisy only with random mutations. */
+
+/*----------------------------------------------------------------------*
+ * Function: reproduce                                                  *
+ * Purpose:  Reproduces clonally                                        *
+ * Params:   d = pointer to a daisy                                     *
+ *           progenitors = pointer to array of progeny                  *
+ * Returns:  Number of progeny produced                                 *
+ *----------------------------------------------------------------------*/
 int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 	assert(progenitors);
 
@@ -347,7 +437,13 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 	return current;
 }
 
-/* Smoothes the temperature landscape. This allows for a kind of pseudo thermal diffusion, so daisies are affected by neighbours. */
+/*----------------------------------------------------------------------*
+ * Function: update_t_map                                               *
+ * Purpose:  Smoothes temperature landscape and calculated non occupied *
+ *           space temperatures.                                        *
+ * Params:   none                                                       *
+ * Returns:  none                                                       *
+ *----------------------------------------------------------------------*/
 void update_t_map(void) {
 	int x, y, xi, yi, min_x, max_x, min_y, max_y;
 	float b_temperature_map[LANDSCAPE_X][LANDSCAPE_Y];
@@ -392,7 +488,12 @@ void update_t_map(void) {
 	return;
 }
 			
-/* Grow the daisy - age it, calculate it's temperature, resources etc. */
+/*----------------------------------------------------------------------*
+ * Function: grow                                                       *
+ * Purpose:  Grows the daisy, accumulates resources                     *
+ * Params:   d = pointer to a daisy                                     *
+ * Returns:  0                                                          *
+ *----------------------------------------------------------------------*/
 int grow(struct Daisy * daisy) {
 	assert(daisy);
 
@@ -423,7 +524,12 @@ int grow(struct Daisy * daisy) {
 	return 0;
 }
 
-/* Control function - runs one cycle of daisies (so ages them, reproduces, calculates temperature map, and outputs data. */
+/*----------------------------------------------------------------------*
+ * Function: run                                                        *
+ * Purpose:  Grows all daisies, sorts out temperature, and outputs data *
+ * Params:   n = current timestep                                       *
+ * Returns:  none                                                       *
+ *----------------------------------------------------------------------*/
 void run(int n) {
 	vary_ri();
 	float planetary_albedo = 0;
@@ -576,8 +682,12 @@ void run(int n) {
 	return;
 }
 
-
-/* Create initial daisies and set up temperature map */
+/*----------------------------------------------------------------------*
+ * Function: setup                                                      *
+ * Purpose:  Sets up initial map.                                       *
+ * Params:   none                                                       *
+ * Returns:  none                                                       *
+ *----------------------------------------------------------------------*/
 void setup(void) {
 	int i;
 	int x, y;
@@ -619,7 +729,12 @@ void setup(void) {
 	}
 }
 
-/* Output map to one of the pd*csv files*/
+/*----------------------------------------------------------------------*
+ * Function: output_map                                                 *
+ * Purpose:  Outputs pd*csv map                                         *
+ * Params:   n = current timestep                                       *
+ * Returns:  none                                                       *
+ *----------------------------------------------------------------------*/
 void output_map(int n) {
 	char filename[500];
 	sprintf(filename, "output/pd%05d.csv", n);
@@ -636,7 +751,12 @@ void output_map(int n) {
 	return;
 }
 
-/* Output temperature map to a td*csv file */
+/*----------------------------------------------------------------------*
+ * Function: output_tmap                                                *
+ * Purpose:  Outputs td*csv temperature map                             *
+ * Params:   n = current timestep                                       *
+ * Returns:  none                                                       *
+ *----------------------------------------------------------------------*/
 void output_tmap(int n) {
 	char filename[500];
 	sprintf(filename, "output/td%05d.csv", n);
@@ -653,6 +773,13 @@ void output_tmap(int n) {
 	return;
 }
 
+/*----------------------------------------------------------------------*
+ * Function: main                                                       *
+ * Purpose:  Entry point to program.                                    *
+ * Params:   argc = number of arguments                                 *
+ *           argv -> array of arguments                                 *
+ * Returns:  None.                                                      *
+ *----------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
 	srand(time(NULL));
 	if (-1 == parse_settings(argc, argv))
