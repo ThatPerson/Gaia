@@ -9,4 +9,4 @@ In order to setup Daisyworld run the following commands;
 git clone https://github.com/ThatPerson/Gaia.git && cd Gaia && chmod +x setup.sh && ./setup.sh
 ```
 
-Now ./gaia can be used as detailed in the manual.
+* Now ./gaia can be used as detailed in the manual.
