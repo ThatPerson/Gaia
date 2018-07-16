@@ -6,7 +6,7 @@
  *                                                                      *
  * Author:  Ben Tatman                                                  *
  *          University of Cambridge                                     *
- *          ben@tatmans.co.uk                                           * 
+ *          ben@tatmans.co.uk                                           *
  *                                                                      *
  * License: Copyright 2017-2018 Ben Tatman                              *
  * Permission is hereby granted, free of charge, to any person          *
@@ -26,7 +26,7 @@
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS  *
  * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN   *
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN    *
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE     * 
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE     *
  * SOFTWARE.                                                            *
  *                                                                      *
  * History: 20-Dec-2017, version 1.0                                    *
@@ -54,7 +54,7 @@
 /*----------------------------------------------------------------------*
  * Global variables                                                     *
  *----------------------------------------------------------------------*/
- 
+
 int initial_mutation_rate = 0.05 * 1000; // Times in 1000
 float initial_colour = 0.5;
 float initial_t_opt = 25;
@@ -78,7 +78,7 @@ float global_temperature = 25;
 int resources_for_reproducing = 30;
 
 int diploid = 1; // 1 if diploid, 0 if haploid.
-int sexual = 1; // 1 if sexual, 0 if asexual. Can't have a sexual haploid. 
+int sexual = 1; // 1 if sexual, 0 if asexual. Can't have a sexual haploid.
 int sim_length = 60;
 char output_folder[500] = ".";
 int verbose = 0;
@@ -135,8 +135,8 @@ float t_opt(struct Daisy * d, float temperature) {
 	if (edea == 1) {
 		float a = (dominance * d->t_opt[0]) + ((1-dominance) * d->t_opt[1]);
 		float b = (dominance * d->t_opt[1]) + ((1-dominance) * d->t_opt[0]);
-		float delta_a = abs(a-temperature);
-		float delta_b = abs(b-temperature);
+		float delta_a = fabs(a-temperature);
+		float delta_b = fabs(b-temperature);
 		if (delta_a < delta_b) {
 			if (d->current == 1)
 					d->switchs = 1;
@@ -144,7 +144,7 @@ float t_opt(struct Daisy * d, float temperature) {
 				d->current = 1;
 			else
 				d->current = 0;
-		
+
 			return a;
 		}
 		if (d->current == 0)
@@ -156,8 +156,8 @@ float t_opt(struct Daisy * d, float temperature) {
 		return b;
 	} else {
 		return d->t_opt[rng(0,1)];
-		float delta_a = abs(d->t_opt[0] - temperature);
-		float delta_b = abs(d->t_opt[1] - temperature);
+		float delta_a = fabs(d->t_opt[0] - temperature);
+		float delta_b = fabs(d->t_opt[1] - temperature);
 		if (delta_a > delta_b) {
 			if (d->current == 0)
 				d->switchs = 1;
@@ -202,7 +202,7 @@ float radiation_factor(float n) {
  *----------------------------------------------------------------------*/
 float nutrient_gradient(float n) {
 	return 1;
-} 
+}
 
 /* Runs each time step and varies the overall radiation intensity */
 void vary_ri(void) {
@@ -219,7 +219,7 @@ void vary_ri(void) {
  *----------------------------------------------------------------------*/
 int check_pos(int x, int y) {
 	if (daisy_map[x][y] == NULL)
-		return 0; 
+		return 0;
 	return 1;
 }
 
@@ -300,12 +300,12 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 			filled_length++;
 			current = current + 1;
 		}
-		
-		
+
+
 	}
 	return current;
 }
- 
+
 /*----------------------------------------------------------------------*
  * Function: s_reproduce                                                *
  * Purpose:  Locates a mate and reproduces sexually.                    *
@@ -349,9 +349,9 @@ int s_reproduce(struct Daisy*d, struct Daisy*progenitors) {
 		return 0;
 	}
 		//printf("%d %d\n", p[1]->age, p[0]->age);
-	
+
 	// The parents are now p[0] and p[1]. Fill in progeny as before, only crossing over the genes.
-	
+
 	current = mate(p, progenitors, 0);
 
 	return current;
@@ -377,7 +377,7 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 				deltas[p] = pow(-1, rng(0, 1)) * mutation_deviation[p];
 
 		}
-		
+
 		if (goldschmidt == 1) {
 			// float goldschmidt_mm[7] = {0.5, 4, 0, 0, 0, 4, 0.5};
 			// int goldschmidt_freq = 1; // times in 10000
@@ -455,13 +455,13 @@ void update_t_map(void) {
 				albedo_temp = albedo_temp + 25 - 234;
 				temperature_map[x][y] = 0.7 * albedo_temp + 0.3*(temperature_map[x][y]);
 			}
-			
+
 			b_temperature_map[x][y] = temperature_map[x][y];
 		}
 	}
-	
+
 	// If a position doesn't have anything growing on it we need to set its temp.
-	
+
 	for (x = 0; x < LANDSCAPE_X; x++) {
 		for (y = 0; y < LANDSCAPE_Y; y++) {
 			min_x = x - 1;
@@ -487,7 +487,7 @@ void update_t_map(void) {
 	}
 	return;
 }
-			
+
 /*----------------------------------------------------------------------*
  * Function: grow                                                       *
  * Purpose:  Grows the daisy, accumulates resources                     *
@@ -500,7 +500,7 @@ int grow(struct Daisy * daisy) {
 	if (daisy->living == 0) {
 		return -1;
 	}
-	
+
 	daisy->age++;
 	if (daisy->age > age_of_death || daisy->cumulated_resources < 0 || check_pos(daisy->pos_x, daisy->pos_y) != 1) {
 		if (daisy->living == 1) {
@@ -514,13 +514,13 @@ int grow(struct Daisy * daisy) {
 	float albedo_temp = pow((solar_intensity * radiation_factor((float) daisy->pos_y/LANDSCAPE_Y) * radiation_intensity * (1-colour(daisy)))/(4*sigmaconstant), 1/4.);
 	// Stefan-Boltzmann Equation to calculate the daisy temperature */
 	albedo_temp = albedo_temp + 25 - 234;
-	daisy->local_te = 0.7*albedo_temp + 0.3*(temperature_map[daisy->pos_x][daisy->pos_y]); 
+	daisy->local_te = 0.7*albedo_temp + 0.3*(temperature_map[daisy->pos_x][daisy->pos_y]);
 	/* 70% of the local temperature is due to the daisy, 30% is due to the thermal insulation of the ground */
 	temperature_map[daisy->pos_x][daisy->pos_y] = daisy->local_te;
-	
+
 	float delta_resources = (5 - pow(daisy->local_te - t_opt(daisy, daisy->local_te), 2)) * nutrient_gradient((float) daisy->pos_x/LANDSCAPE_X);
 	daisy->cumulated_resources += delta_resources;
-	
+
 	return 0;
 }
 
@@ -572,7 +572,7 @@ void run(int n) {
 		if (daisies[i].living == 1) {
 			int c = (int) round((float) daisies[i].pos_y / LANDSCAPE_Y);
 
-			
+
 			if (colour(&daisies[i]) > 0.55) {
 				white++;
 				c = 1;
@@ -595,22 +595,22 @@ void run(int n) {
 				num_cheat++;
 			n_dispersal[c]+=daisies[i].dispersal;
 			n_mutation_rate[c]+=daisies[i].mutation_rate;
-			
+
 			if (min_y > daisies[i].pos_y)
 				min_y = daisies[i].pos_y;
 			if (max_y < daisies[i].pos_y)
 				max_y = daisies[i].pos_y;
-			
+
 			grow(&daisies[i]);
-			
+
 		}
 	}
-	
+
 	/* Reproduce */
 	struct Daisy * sp[2];
 	struct Daisy new_daisies[MAX_PROGENY];
 	average_t_opt = average_t_opt/num_alive;
-	
+
 	for (i = 0; i < num_daisies; i++) {
 		if (daisies[i].living == 1 && daisies[i].cumulated_resources > resources_for_reproducing) {
 			int length = 0;
@@ -642,24 +642,24 @@ void run(int n) {
 			}
 		}
 	}
-	
+
 	float divergence = 0;
 	float sd_divergence = 0;
 	float q = 0;
 	for (i = 0; i < num_daisies; i++) {
-		q = abs(daisies[i].t_opt[0] - daisies[i].t_opt[1]);
+		q = fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]);
 		divergence += q;
 
 	}
-	
+
 	divergence = divergence/num_daisies; // *****This divergence is not accurate******** - a much better way is to turn on verbose and read the pd files.
-	
+
 	for (i = 0; i < num_daisies; i++) {
-		sd_divergence += pow(abs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
+		sd_divergence += pow(fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
 	}
 	sd_divergence = sqrt(sd_divergence/num_daisies);
 
-	
+
 	if (n_count[0] == 0)
 		n_count[0] = 1000000000;
 	if (n_count[1] == 0)
@@ -674,7 +674,7 @@ void run(int n) {
 	for (i = 0; i < number_to_cull; i++) {
 		int q = rng(0, num_daisies);
 		if (daisies[q].living == 1) {
-			daisies[q].living = 0; 
+			daisies[q].living = 0;
 			daisy_map[daisies[q].pos_x][daisies[q].pos_y] = NULL;
 			num_alive--;
 		}
@@ -709,7 +709,7 @@ void setup(void) {
 			daisies[num_daisies].colour[0] = initial_colour;
 			daisies[num_daisies].colour[1] = initial_colour;
 			daisies[num_daisies].t_opt[0] = initial_t_opt;
-			daisies[num_daisies].t_opt[1] = initial_t_opt; 
+			daisies[num_daisies].t_opt[1] = initial_t_opt;
 			daisies[num_daisies].dispersal = initial_dispersal;
 			daisies[num_daisies].progeny = initial_progeny;
 			daisies[num_daisies].age = 0;
@@ -784,22 +784,22 @@ int main(int argc, char* argv[]) {
 	srand(time(NULL));
 	if (-1 == parse_settings(argc, argv))
 		return 1;
-	sigmaconstant = 5.67*pow(10, -8);		
+	sigmaconstant = 5.67*pow(10, -8);
 	setup();
-	
-	/* Open the files required for constant output */	
+
+	/* Open the files required for constant output */
 	vertical = fopen("output/vertical.csv",   "w+");
 	horizontal = fopen("output/horizontal.csv", "w+");
 	if (vertical == NULL || horizontal == NULL) {
 		printf("File failed to open.\n");
 	}
-	
+
 	fprintf(vertical, "n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, num_alive, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, cheat\n");
 	int i, p, q, l;
 	int pl = 0;
 	int last = 0;
 	float radiation_intensity_next, radiation_intensity_last;
-	
+
 	int going_down = 0, going_up = 0;
 
 	for (i = 0; i < sim_length; i++) {
@@ -812,15 +812,15 @@ int main(int argc, char* argv[]) {
 		//radiation_intensity += 0.05*((PI * i / (100*pow((2000-(i/100)), 2))) + (PI / (2000-(i/100)))) * cos((PI * i)/(2000-(i/100)));
 
 		float psdsd = (float)60000/200000;
-		
-		
+
+
 		float qwe = 400 - (pl/36);
 		//radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe));
 		radiation_intensity_last = radiation_intensity;
 		radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe));
 		if (i > 500)
 			pl++;
-			
+
 		if (peak_verb == 1) {
 			radiation_intensity_next = 1 + (psdsd * sin((3.14*(float) (pl+1))/(400 - ((pl+1)/36))));
 			going_down = 0;
@@ -840,9 +840,9 @@ int main(int argc, char* argv[]) {
 			}
 
 		}
-		
-		
-		if (oscillation_wavelength != 0) 
+
+
+		if (oscillation_wavelength != 0)
 			radiation_intensity += 0.00005 * sin(i * 3.14 / oscillation_wavelength);
 		time_q++;
 		update_t_map();
@@ -851,8 +851,8 @@ int main(int argc, char* argv[]) {
 			output_map(i);
 			output_tmap(i);
 		}
-		
-		
+
+
 
 		// Shrink array by removing dead daisies.
 		l = num_daisies;
@@ -862,7 +862,7 @@ int main(int argc, char* argv[]) {
 				daisies[p].switchs = 0;
 			if (daisies[p].living == 0) {
 				for (q = p; q < num_daisies; q++) {
-					daisy_map[daisies[q].pos_x][daisies[q].pos_y] = NULL; 
+					daisy_map[daisies[q].pos_x][daisies[q].pos_y] = NULL;
 					daisies[q] = daisies[q+1];
 					daisy_map[daisies[q].pos_x][daisies[q].pos_y] = &daisies[q];
 					filled_positions_x[q] = filled_positions_x[q+1];
@@ -886,7 +886,7 @@ int main(int argc, char* argv[]) {
 		for (x = 0; x < num_daisies+1; x++) {
 			daisy_map[daisies[x].pos_x][daisies[x].pos_y] = &daisies[x];
 		}
-		
+
 		num_alive = r_num_alive;
 	}
 
@@ -894,6 +894,6 @@ int main(int argc, char* argv[]) {
 		fclose(vertical);
 	if (horizontal != NULL)
 		fclose(horizontal);
-		
+
 	return 1;
 }
