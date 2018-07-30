@@ -1,5 +1,7 @@
 Gaian Daisyworld.
 
+* This has changes to t_opt and reproduce to add polyploidy and changing N.
+
 A extensible model of James Lovelock and Andrew Watson's Daisyworld.
 You need to create an output/ folder in order for it to work.
 
