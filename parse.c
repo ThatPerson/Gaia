@@ -66,6 +66,7 @@ extern int edea;
 extern int slm;
 extern float slmmod;
 extern int wthreeinc;
+extern int recombenefit;
 
 /*----------------------------------------------------------------------*
  * Function: get_arg                                                    *
@@ -123,7 +124,7 @@ int parse_settings(int argc, char*argv[]) {
 				}
 				break;
 			case 't': global_temperature = get_arg(argv[i], 1); break;
-			case 'r': resources_for_reproducing = (int) get_arg(argv[i], 1); break;
+			case 'r': if (argv[i][1] == 'b') { recombenefit = (int)get_arg(argv[i], 2);} else {resources_for_reproducing = (int) get_arg(argv[i], 1);} break;
 			case 'k': radiation_intensity = get_arg(argv[i], 1); break;
 			case 'g': goldschmidt = 1; goldschmidt_freq = (int) get_arg(argv[i], 1); break;
 			case 'f': oscillation_wavelength = get_arg(argv[i], 1); break;
