@@ -135,8 +135,8 @@ float t_opt(struct Daisy * d, float temperature) {
 	if (edea == 1) {
 		float a = (dominance * d->t_opt[0]) + ((1-dominance) * d->t_opt[1]);
 		float b = (dominance * d->t_opt[1]) + ((1-dominance) * d->t_opt[0]);
-		float delta_a = abs(a-temperature);
-		float delta_b = abs(b-temperature);
+		float delta_a = fabs(a-temperature);
+		float delta_b = fabs(b-temperature);
 		if (delta_a < delta_b) {
 			if (d->current == 1)
 					d->switchs = 1;
@@ -156,8 +156,8 @@ float t_opt(struct Daisy * d, float temperature) {
 		return b;
 	} else {
 		return d->t_opt[rng(0,1)];
-		float delta_a = abs(d->t_opt[0] - temperature);
-		float delta_b = abs(d->t_opt[1] - temperature);
+		float delta_a = fabs(d->t_opt[0] - temperature);
+		float delta_b = fabs(d->t_opt[1] - temperature);
 		if (delta_a > delta_b) {
 			if (d->current == 0)
 				d->switchs = 1;
