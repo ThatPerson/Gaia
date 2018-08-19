@@ -652,7 +652,7 @@ void run(int n) {
 
 	}
 
-	divergence = divergence/num_daisies; // *****This divergence is not accurate******** - a much better way is to turn on verbose and read the pd files.
+	divergence = divergence/num_daisies; 
 
 	for (i = 0; i < num_daisies; i++) {
 		sd_divergence += pow(fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
