@@ -605,11 +605,32 @@ void run(int n) {
 
 		}
 	}
+	int pop_num = 0;
+	float divergence = 0;
+	float sd_divergence = 0;
+	float q = 0;
+	for (i = 0; i < num_daisies; i++) {
+		if (daisies[i].living == 1) {
+			q = fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]);
+			divergence += q;
+			pop_num++;
+		}
+
+	}
+
+	divergence = divergence/pop_num;
+
+	for (i = 0; i < num_daisies; i++) {
+		if (daisies[i].living == 1)
+			sd_divergence += pow(fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
+	}
+	sd_divergence = sqrt(sd_divergence/pop_num);
+
 
 	/* Reproduce */
 	struct Daisy * sp[2];
 	struct Daisy new_daisies[MAX_PROGENY];
-	average_t_opt = average_t_opt/num_alive;
+	average_t_opt = average_t_opt/pop_num;
 
 	for (i = 0; i < num_daisies; i++) {
 		if (daisies[i].living == 1 && daisies[i].cumulated_resources > resources_for_reproducing) {
@@ -643,21 +664,7 @@ void run(int n) {
 		}
 	}
 
-	float divergence = 0;
-	float sd_divergence = 0;
-	float q = 0;
-	for (i = 0; i < num_daisies; i++) {
-		q = fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]);
-		divergence += q;
 
-	}
-
-	divergence = divergence/num_daisies; 
-
-	for (i = 0; i < num_daisies; i++) {
-		sd_divergence += pow(fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
-	}
-	sd_divergence = sqrt(sd_divergence/num_daisies);
 
 
 	if (n_count[0] == 0)
@@ -666,7 +673,7 @@ void run(int n) {
 		n_count[1] = 1000000000;
 	/* Output to file */
 	fprintf(vertical, "%d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f\n",
-		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, num_alive, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt);
+		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, pop_num, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt);
 
 
 	/* Cull the number of daisies down to the carrying capacity */
