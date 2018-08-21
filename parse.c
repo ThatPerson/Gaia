@@ -1,3 +1,37 @@
+/*----------------------------------------------------------------------*
+ * File:    gaia.c                                                      *
+ *                                                                      *
+ * Purpose: Simulate a 2-D cellular automata model "DEAsy-World".       *
+ *                                                                      *
+ *                                                                      *
+ * Author:  Ben Tatman                                                  *
+ *          University of Cambridge                                     *
+ *          ben@tatmans.co.uk                                           * 
+ *                                                                      *
+ * License: Copyright 2017-2018 Ben Tatman                              *
+ * Permission is hereby granted, free of charge, to any person          *
+ * obtaining a copy of this software and associated documentation files *
+ * (the "Software"), to deal in the Software without restriction,       *
+ * including without limitation the rights to use, copy, modify, merge, *
+ * publish, distribute, sublicense, and/or sell copies of the Software, *
+ * and to permit persons to whom the Software is furnished to do so,    *
+ * subject to the following conditions:                                 *
+ *                                                                      *
+ * The above copyright notice and this permission notice shall be       *
+ * included in all copies or substantial portions of the Software.      *
+ *                                                                      *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,      *
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF   *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND                *
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS  *
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN   *
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN    *
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE     * 
+ * SOFTWARE.                                                            *
+ *                                                                      *
+ * History: 20-Dec-2017, version 1.0                                    *
+ *----------------------------------------------------------------------*/
+
 extern int diploid;
 extern int sexual;
 extern int sim_length;
@@ -29,6 +63,13 @@ extern int peak_verb;
 extern float oscillation_wavelength;
 extern int edea;
 
+/*----------------------------------------------------------------------*
+ * Function: get_arg                                                    *
+ * Purpose:  Extracts value of argument                                 *
+ * Params:   c = pointer to string                                      *
+ *           start = start position of value                            *
+ * Returns:  value as a float                                           *
+ *----------------------------------------------------------------------*/
 float get_arg(char * c, int start) {
 
 	int i;
@@ -39,7 +80,13 @@ float get_arg(char * c, int start) {
 
 	return atof(str);
 }
-
+/*----------------------------------------------------------------------*
+ * Function: parse_settings                                             *
+ * Purpose:  Parses command line options and sets values.               *
+ * Params:   argc = number of arguments                                 *
+ *           argv = array of arguments                                  *
+ * Returns:  1 if successful, -1 if failed.                             *
+ *----------------------------------------------------------------------*/
 int parse_settings(int argc, char*argv[]) {
 	int i;
 	for (i = 1; i < argc; i++) {
