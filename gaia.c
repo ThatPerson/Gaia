@@ -243,7 +243,6 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 	}
 	float total_resources = p[0]->cumulated_resources + p[1]->cumulated_resources;
 											// The progeny have access to both parents resources.
-											// Then we remove these resources from the parents.
 
 
 	for (i = 0; i < p[randoms[0]]->progeny; i++) {
