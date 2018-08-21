@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE     *
  * SOFTWARE.                                                            *
  *                                                                      *
- * History: 20-Dec-2017, version 1.0                                    *
+ * History: 21-Aug-2018, version 1.0                                    *
  *----------------------------------------------------------------------*/
 
 #include <stdio.h>
@@ -44,74 +44,86 @@
 /*----------------------------------------------------------------------*
  * Constants                                                            *
  *----------------------------------------------------------------------*/
-
-#define LANDSCAPE_X 50
+#define LANDSCAPE_X 50						// LANDSCAPE_X and Y define the dimensions of the map
 #define LANDSCAPE_Y 50
-#define CARRYING_CAP 10000
-#define MAX_PROGENY 10
-#define PI 3.141592653
+#define CARRYING_CAP 10000					// Carrying capacity implements an artificial maximum carrying capacity.
+#define MAX_PROGENY 10						// The number of progeny a daisy can have can mutate - this limits that.
+#define PI 3.141592654
 
 /*----------------------------------------------------------------------*
  * Global variables                                                     *
  *----------------------------------------------------------------------*/
+int initial_mutation_rate = 0.05 * 1000; 	// This is the mutation rate (eg % of time it will mutate) multiplied by 1000. Multiplication occurs because later on this is compared to rng(1,1000).
+float initial_colour = 0.5;					// Now we define some initial characteristics; colour,
+float initial_t_opt = 25;					// optimum temperature,
+int initial_dispersal =	3;					// dispersal, (this is the radius around which baby daisies can be placed
+int initial_progeny = 2;					// progeny, (this is the number of baby daisies produced)
+int initial_pop = 10;						// population, (the number of daisies placed at the start.
+int cheat = 0;								// In earlier tests we experimented with adding cheats - that is to say, a daisy at [20, 20] can mate with one at [40, 40]. We hypothesised that this might lead to the development of cheats (eg a daisy which is dark and so warming and likes warming environments, and so leads to a runaway effect). This is left in here.
+int edea = 0;								// How are the alleles expressed? edea = 1 produces differential allelic expression, =0 produces random expression.
+int peak_verb = 0;							// If this is set to 1 then it tries to output verbose data when it reaches a peak in the oscillation.
 
-int initial_mutation_rate = 0.05 * 1000; // Times in 1000
-float initial_colour = 0.5;
-float initial_t_opt = 25;
-int initial_dispersal =	3;
-int initial_progeny = 2;
-int initial_pop = 10;
-int cheat = 0;
-int edea = 0;
-int peak_verb = 0;
-
+//float mutation_deviation[7] = {0.05, 0.25, 0, 0.0, 0, 0.25, 0.05};
+//float mutation_deviation[7] = {0.01, 0.001, 0, 0, 0, 0.001, 0.01};
 float mutation_deviation[7] = {0.05, 0.1, 0, 0, 0, 0.1, 0.05};
+											// These define the steps in mutations -
+											// 			[0] - colour mutation in allele A
+											//			[1] - temperature mutation in allele A
+											//			[2] - dispersal mutation (integer!)
+											//			[3] - progeny mutation (integer!)
+											//			[4] - mutation rate mutation
+											//			[5] - temperature mutation in allele B
+											//			[6] - colour mutation in allele B
+
 float goldschmidt_mm[7] = {0.5, 4, 0, 0, 0, 4, 0.5};
-int goldschmidt_freq = 0; // times in 10000
-int age_of_death = 50;
+											// These are macromutations. Earlier in modeling we were experimenting with adding lower frequency large mutations.
+int goldschmidt_freq = 0; 					// The frequency of macromutations. This is times per 10,000.
+int age_of_death = 50;						// The age at which daisies will die naturally.
 float mean_radiation_intensity = 1;
-float radiation_intensity = 1;
+float radiation_intensity = 1;				// The radiation intensity experienced.
 int filled_positions_x[CARRYING_CAP * 1000];
 int filled_positions_y[CARRYING_CAP * 1000];
 int filled_length = 0;
-float global_temperature = 25;
-int resources_for_reproducing = 30;
+float global_temperature = 25;				// The average temperature over the whole grid.
+int resources_for_reproducing = 30;			// How many resources are required for a daisy to reproduce.
 
-int diploid = 1; // 1 if diploid, 0 if haploid.
-int sexual = 1; // 1 if sexual, 0 if asexual. Can't have a sexual haploid.
-int sim_length = 60;
-char output_folder[500] = ".";
-int verbose = 0;
-int verbose_s = 20;
-int goldschmidt = 0;
-int cheat_freq = 0;
+int diploid = 1; 							// 1 if diploid, 0 if haploid.
+int sexual = 1; 							// 1 if sexual, 0 if asexual. Can't have a sexual haploid.
+int sim_length = 60;						// How long the simulation runs for.
+char output_folder[500] = ".";				// Defines where the model can find the output/ folder
+int verbose = 0;							// Activates verbose mode whereby it will output a map and temperature_map (AFTER RUN()) every verbose_s steps
+int verbose_s = 20;							// How regularly the map and temperature_map are expressed.
+int goldschmidt = 0;						// If this is 1 then the model will try to enable macromutations (see above).
+int cheat_freq = 0;							// (see int cheat) How frequently cheating events occur.
 FILE *vertical, *horizontal;
-float oscillation_wavelength = 0;
-int runprint = 1;
-float sex_freq = 0; // If we're an asexual diploid then we can have sex occasionally.
+float oscillation_wavelength = 0;			// This is generally not used in favour of defining the equation below.
+int runprint = 1;							// This outputs "Running (TIME) RAD" every time.
+float sex_freq = 0; 						// This allows for asexual diploids to have low frequency sex.
 
 struct Daisy {
 	int pos_x, pos_y, dispersal, progeny, age, generation, living, mutation_rate, cheat, switchs, current;
 	float colour[2], t_opt[2], local_te, cumulated_resources;
-};
+};											// The general daisy structure. switchs and current are relating to which temperature allele is being expressed.
 
-struct Daisy daisies[CARRYING_CAP*1000];
+struct Daisy daisies[CARRYING_CAP*1000];	// This holds the daisies.
 
 struct Daisy * daisy_map[LANDSCAPE_X][LANDSCAPE_Y];
+											// This is an array of pointers to the daisy present at position [x][y].
 
-int num_daisies = 0;
-int num_alive = 0;
+int num_daisies = 0;						// This keeps track of the operating length of daisies[]
+int num_alive = 0;							// At certain points in the simulation daisies[] may contain dead daisies, which will still be counted by num_daisies. This variable counts the number of those which are alive.
 int time_q;
 int period = 200;
 
 float temperature_map[LANDSCAPE_X][LANDSCAPE_Y];
+											// The equivalent of daisy_map, only this holds the temperatures over the map.
 
 char filename[500];
 
-float sigmaconstant;
+float sigmaconstant;						// 5.67*10^-8, this is defined below.
 float solar_intensity = 1366; // Wm^-2
 
-float dominance = 0.5;
+float dominance = 0.5;						// This affects how t_opt is expressed by changing the relative proportions of each temperature allele.
 
 /*----------------------------------------------------------------------*
  * Function: rng                                                        *
@@ -121,7 +133,7 @@ float dominance = 0.5;
  * Returns:  Random number from n to m inclusive                        *
  *----------------------------------------------------------------------*/
 int rng(int n, int m) {
-	return n + rand()%(m-n+1);
+	return n + rand()%(m-n+1); 				// rand()%(m-n+1) gives a random number from 0 to m-n, so adding n gives a random number from n to m.
 }
 
 /*----------------------------------------------------------------------*
@@ -134,10 +146,12 @@ int rng(int n, int m) {
 float t_opt(struct Daisy * d, float temperature) {
 	if (edea == 1) {
 		float a = (dominance * d->t_opt[0]) + ((1-dominance) * d->t_opt[1]);
+											// We calculate the possible growth temperatures
 		float b = (dominance * d->t_opt[1]) + ((1-dominance) * d->t_opt[0]);
+											// Then we calculate the absolute difference between these growth temperatures and the local temperature.
 		float delta_a = fabs(a-temperature);
 		float delta_b = fabs(b-temperature);
-		if (delta_a < delta_b) {
+		if (delta_a < delta_b) {			// If A is closer to the local temperature than B then we want to express A.
 			if (d->current == 1)
 					d->switchs = 1;
 			if (dominance > 0.5)
@@ -153,22 +167,9 @@ float t_opt(struct Daisy * d, float temperature) {
 			d->current = 0;
 		else
 			d->current = 1;
-		return b;
+		return b;							// Else we want to express B.
 	} else {
-		return d->t_opt[rng(0,1)];
-		float delta_a = fabs(d->t_opt[0] - temperature);
-		float delta_b = fabs(d->t_opt[1] - temperature);
-		if (delta_a > delta_b) {
-			if (d->current == 0)
-				d->switchs = 1;
-			d->current = 1;
-			return d->t_opt[1];
-		} else {
-			if (d->current == 1)
-				d->switchs = 1;
-			d->current = 0;
-			return d->t_opt[0];
-		}
+		return d->t_opt[rng(0,1)];			// If DAE is disabled then we express the temperature alleles at random
 	}
 }
 
@@ -179,7 +180,7 @@ float t_opt(struct Daisy * d, float temperature) {
  * Returns:  Current colour of daisy                                    *
  *----------------------------------------------------------------------*/
 float colour(struct Daisy *d) {
-	return dominance * d->colour[0] + (1-dominance) * d->colour[1];
+	return dominance * d->colour[0] + (1-dominance) * d->colour[1]; // Colour is not expressed with differential allelic expression, but it still takes into account the dominance.
 }
 
 /*----------------------------------------------------------------------*
@@ -190,7 +191,7 @@ float colour(struct Daisy *d) {
  * Returns:  Multiplier                                                 *
  *----------------------------------------------------------------------*/
 float radiation_factor(float n) {
-	return 0.8 + 0.4*n;
+	return 0.8 + 0.4*n;						// 0.8 at pole, 1.2 at equator.
 }
 
 /*----------------------------------------------------------------------*
@@ -201,13 +202,15 @@ float radiation_factor(float n) {
  * Returns:  Multiplier                                                 *
  *----------------------------------------------------------------------*/
 float nutrient_gradient(float n) {
-	return 1;
+	return 1;								// This is similar to radiation_factor only it operates east to west.
 }
 
 /* Runs each time step and varies the overall radiation intensity */
 void vary_ri(void) {
-	radiation_intensity += 0;
+	radiation_intensity += 0;				// This has generally been superseeded by just having the equation in main().
 }
+
+
 
 /*----------------------------------------------------------------------*
  * Function: check_pos                                                  *
@@ -236,25 +239,32 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 	assert(progenitors);
 	int i, randoms[18], pq, current = 0;
 	for (i = 0; i < 18; i++) {
-		randoms[i] = rng(0,1);
+		randoms[i] = rng(0,1);				// This is just an array of 0s and 1s at random, which are used to determine from which parent each allele is from.
 	}
 	float total_resources = p[0]->cumulated_resources + p[1]->cumulated_resources;
+											// The progeny have access to both parents resources.
+											// Then we remove these resources from the parents.
+
+
 	for (i = 0; i < p[randoms[0]]->progeny; i++) {
 		int y_delta = rng(0, 2*p[randoms[1]]->dispersal) - p[randoms[1]]->dispersal;
 		int x_delta = pow(-1, rng(0, 1)) * rng(0, (int) sqrt(pow(p[randoms[1]]->dispersal, 2) - pow(y_delta, 2)));
+											// y delta is a number from -dispersal to +dispersal. x delta then uses Pythagoras' equation a^2 + b^2 = c^2 to determine the relating x value (eg for dispersal = 3, when y delta = 0 x delta = 3, and visa versa.
 		float deltas[7] = {0, 0, 0, 0, 0, 0, 0};
 		for (pq = 0; pq < 7; pq++) {
 			if (rng(0, 1000) < p[randoms[2]]->mutation_rate)
 				deltas[pq] = pow(-1, rng(0, 1)) * mutation_deviation[pq];
-		}
+		}									// deltas[] is an array laid out the same way as mutation_deviation which refers to the actual change.
+
 		if (goldschmidt == 1) {
 			// float goldschmidt_mm[7] = {0.5, 4, 0, 0, 0, 4, 0.5};
 			// int goldschmidt_freq = 1; // times in 10000
 			for (pq = 0; pq < 7; pq++) {
 				if (rng(0, 10000) <= goldschmidt_freq)
-					deltas[pq] += pow(-1, rng(0, 1)) * goldschmidt_mm[pq];
+					deltas[pq] += pow(-1, rng(0, 1)) * goldschmidt_mm[pq]; // Macromutations as mentioned before.
 			}
 		}
+											// What follows is the definition of the new alleles according to their current alleles (randomly chosen from each parent's set of alleles) and the modifier from deltas[].
 		float new_ca = p[0]->colour[randoms[12]] + deltas[0];
 		float new_cb = p[1]->colour[randoms[11]] + deltas[6];
 		if (new_ca > 1)
@@ -273,6 +283,7 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 		int new_y = p[randoms[10]]->pos_y + y_delta;
 
 		if (check_pos(new_x, new_y) != 1 && new_x < LANDSCAPE_X && new_x >= 0 && new_y >= 0 && new_y < LANDSCAPE_Y) {
+											// Is the position vacant? If so, is it in bounds?
 
 			progenitors[current].pos_x = new_x;
 			progenitors[current].pos_y = new_y;
@@ -287,7 +298,7 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 			progenitors[current].living = 1;
 			progenitors[current].switchs = 0;
 			progenitors[current].cheat = (p[randoms[9]]->cheat == 1)?2:p[randoms[9]]->cheat;
-			progenitors[current].cumulated_resources = total_resources / (p[randoms[0]]->progeny + 1);
+			progenitors[current].cumulated_resources = total_resources / (p[randoms[0]]->progeny + 1);											// The total resources are divided between all progeny.
 			progenitors[current].colour[0] = ((new_ca > 0)?new_ca:0);
 			progenitors[current].colour[1] = ((new_cb > 0)?new_cb:0);
 			filled_positions_x[filled_length] = new_x;
@@ -316,7 +327,7 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 int s_reproduce(struct Daisy*d, struct Daisy*progenitors) {
 	assert(d);
 	assert(progenitors);
-	int min_x, max_x, min_y, max_y, current = 0;
+	int min_x, max_x, min_y, max_y, current = 0;	// These define the range of potential mates.
 	min_x = d->pos_x-1;
 	max_x = d->pos_x+1;
 	min_y = d->pos_y-1;
@@ -386,7 +397,7 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 					deltas[pq] += pow(-1, rng(0, 1)) * goldschmidt_mm[pq];
 			}
 		}
-
+											// Same as before only for one parent.
 		float new_ca = d->colour[0] + deltas[0];
 		float new_cb = d->colour[1] + deltas[6];
 		if (new_ca > 1)
@@ -450,13 +461,14 @@ void update_t_map(void) {
 	float albedo_temp;
 	for (x = 0; x < LANDSCAPE_X; x++) {
 		for (y = 0; y < LANDSCAPE_Y; y++) {
-			if (check_pos(x, y) == 0) {
+			if (check_pos(x, y) == 0) {			// Then temperature uses base albedo of 0.5
 				albedo_temp = pow((solar_intensity * radiation_factor((float) y/LANDSCAPE_Y) * radiation_intensity * (1-0.5))/(4*sigmaconstant), 1/4.);
 				albedo_temp = albedo_temp + 25 - 234;
 				temperature_map[x][y] = 0.7 * albedo_temp + 0.3*(temperature_map[x][y]);
 			}
 
 			b_temperature_map[x][y] = temperature_map[x][y];
+												// Used so we don't use new values in calculations.
 		}
 	}
 
@@ -502,11 +514,11 @@ int grow(struct Daisy * daisy) {
 	}
 
 	daisy->age++;
-	if (daisy->age > age_of_death || daisy->cumulated_resources < 0 || check_pos(daisy->pos_x, daisy->pos_y) != 1) {
+	if (daisy->age > age_of_death || daisy->cumulated_resources < 0 || check_pos(daisy->pos_x, daisy->pos_y) != 1) {						// We kill off old daisies.
 		if (daisy->living == 1) {
 			daisy->living = 0;
 			daisy_map[daisy->pos_x][daisy->pos_y] = NULL;
-			num_alive--;
+			num_alive--;					// We haven't yet cleaned up the daisy array (and can't in this context) so we can't remove from num_daisies.
 		}
 		return -1;
 	}
@@ -534,6 +546,7 @@ void run(int n) {
 	vary_ri();
 	float planetary_albedo = 0;
 	int i, p;
+										// We prepare the output data for vertical.csv
 	for (i = 0; i < num_daisies; i++) {
 		planetary_albedo += (daisies[i].living == 1)?colour(&daisies[i]):0;
 	}
@@ -601,36 +614,43 @@ void run(int n) {
 			if (max_y < daisies[i].pos_y)
 				max_y = daisies[i].pos_y;
 
-			grow(&daisies[i]);
+
 
 		}
 	}
-	int pop_num = 0;
+
 	float divergence = 0;
 	float sd_divergence = 0;
 	float q = 0;
+	int num_pop = 0;
 	for (i = 0; i < num_daisies; i++) {
 		if (daisies[i].living == 1) {
 			q = fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]);
 			divergence += q;
-			pop_num++;
+			num_pop++;
 		}
 
 	}
 
-	divergence = divergence/pop_num;
+	divergence = divergence/num_pop;
 
 	for (i = 0; i < num_daisies; i++) {
-		if (daisies[i].living == 1)
+		if (daisies[i].living == 1) {
 			sd_divergence += pow(fabs(daisies[i].t_opt[0] - daisies[i].t_opt[1]) - divergence, 2);
+		}
 	}
-	sd_divergence = sqrt(sd_divergence/pop_num);
-
+	sd_divergence = sqrt(sd_divergence/num_pop);
 
 	/* Reproduce */
+	for (i = 0; i < num_daisies; i++) {
+		if (daisies[i].living == 1) {
+			grow(&daisies[i]);
+		}
+	}
+								// And now we run the simulation...
 	struct Daisy * sp[2];
 	struct Daisy new_daisies[MAX_PROGENY];
-	average_t_opt = average_t_opt/pop_num;
+	average_t_opt = average_t_opt/num_pop;
 
 	for (i = 0; i < num_daisies; i++) {
 		if (daisies[i].living == 1 && daisies[i].cumulated_resources > resources_for_reproducing) {
@@ -673,8 +693,8 @@ void run(int n) {
 		n_count[1] = 1000000000;
 	/* Output to file */
 	fprintf(vertical, "%d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f\n",
-		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, pop_num, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt);
-
+		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, num_pop, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt);
+												// The data from above is output.
 
 	/* Cull the number of daisies down to the carrying capacity */
 	int number_to_cull = num_alive - CARRYING_CAP;
@@ -688,6 +708,7 @@ void run(int n) {
 	}
 	return;
 }
+
 
 /*----------------------------------------------------------------------*
  * Function: setup                                                      *
@@ -704,6 +725,7 @@ void setup(void) {
 
 		}
 	}
+										// We use predefined initial values.
 	for (i = 0; i < initial_pop; i++) {
 		int x = rng(0, LANDSCAPE_X);
 		int y = rng((LANDSCAPE_Y/2)-1, (LANDSCAPE_Y/2));
@@ -789,9 +811,9 @@ void output_tmap(int n) {
  *----------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
 	srand(time(NULL));
+	sigmaconstant = 5.67*pow(10, -8);
 	if (-1 == parse_settings(argc, argv))
 		return 1;
-	sigmaconstant = 5.67*pow(10, -8);
 	setup();
 
 	/* Open the files required for constant output */
@@ -810,6 +832,8 @@ int main(int argc, char* argv[]) {
 	int going_down = 0, going_up = 0;
 
 	for (i = 0; i < sim_length; i++) {
+
+										// In some sexual models the daisies can be far apart from one another and so can't reproduce.
 		if (i == 3 && num_alive == 0 && sexual == 1) {
 			// None of the initial progeny are in the right place. Return -1 and start over.
 			return -1;
@@ -818,9 +842,12 @@ int main(int argc, char* argv[]) {
 			printf("Running %d (%0.8f)...\n", i, radiation_intensity);
 		//radiation_intensity += 0.05*((PI * i / (100*pow((2000-(i/100)), 2))) + (PI / (2000-(i/100)))) * cos((PI * i)/(2000-(i/100)));
 
+
+					// ######################
+					// The following code calculates the radiation intensity. This equation needs to be varied to change the intensity series.
+					// ######################
+
 		float psdsd = (float)60000/200000;
-
-
 		float qwe = 400 - (pl/36);
 		//radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe));
 		radiation_intensity_last = radiation_intensity;
@@ -851,6 +878,10 @@ int main(int argc, char* argv[]) {
 
 		if (oscillation_wavelength != 0)
 			radiation_intensity += 0.00005 * sin(i * 3.14 / oscillation_wavelength);
+
+
+
+							// Finally we get to running. We update the temperature map and then run().
 		time_q++;
 		update_t_map();
 		run(i);
