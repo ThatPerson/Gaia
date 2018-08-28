@@ -33,6 +33,12 @@
  *			* Jul-2018, version 1.1										*
  *----------------------------------------------------------------------*/
 
+
+/* The only bits which have really changed from the old Gaia model are those where I check if polyploid == 1.
+As the other model is already annotated (see github) I've only annotated these new areas */
+
+
+
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
@@ -107,7 +113,7 @@ struct Daisy {
 	char sheltered_load[40][11];
 };
 
-struct RecombinationPair {
+struct RecombinationPair { /* This is a structure which represents the combination of two sheltered loads which are recombining. */
 	char a[2][11];
 };
 
@@ -206,11 +212,11 @@ float t_opt(struct Daisy * d, float temperature) {
 
 	if (edea == 1) {
 		if (polyploid == 1) {
-
+				/* If polyploidy == 1 then we loop over every temperature allele available, and find the smallest difference between the temperature allele and the local temperature */
 
 			int i;
-			float curr_l = 100000;
-			int returns;
+			float curr_l = 100000; // this holds the current lowest.
+			int returns; // In the polyploid model we return the index of the allele as opposed to the temperature to be expressed. I can't really remember why I did this.
 			for (i = 0; i < d->ploidy; i++) {
 
 				if (fabs(d->t_opt[i] - temperature) < curr_l) {
@@ -219,7 +225,7 @@ float t_opt(struct Daisy * d, float temperature) {
 				}
 			}
 			return returns;
-			return 25;
+			return 25; // This is one of those times where for some reason it works for me with it, but not without, while the actual line does nothing.
 
 		} else {
 			float a = (dominance * d->t_opt[0]) + ((1-dominance) * d->t_opt[1]);
@@ -270,6 +276,7 @@ float t_opt(struct Daisy * d, float temperature) {
  *----------------------------------------------------------------------*/
 float colour(struct Daisy *d) {
 	if (polyploid == 1) {
+		/* If polyploidy is enabled then the colour is given as the average of the colour alleles available */
 		int i;
 		float temp = 0;
 		for (i = 0; i < d->ploidy; i++) {
@@ -277,7 +284,7 @@ float colour(struct Daisy *d) {
 		}
 		return temp / (d->ploidy);
 	} else {
-		return dominance * d->colour[0] + (1-dominance) * d->colour[1];
+		return dominance * d->colour[0] + (1-dominance) * d->colour[1]; // Whereas for non polyploid models it is the dominance weighted average.
 	}
 }
 
@@ -328,25 +335,25 @@ int check_pos(int x, int y) {
  * Params:   n - Recombination Pair										 *
  * Returns:  new pair								 *
  *----------------------------------------------------------------------*/
-struct RecombinationPair recombine(struct RecombinationPair n) {
-	// Recombine n.a and n.b
+struct RecombinationPair sl_recombine(struct RecombinationPair n) {
+	// This program takes in n, which has sheltered loads n.a[0] and n.a[1], and randomly recombines them
 	struct RecombinationPair m;
-	int bp = rng(0, 9);
-	int st = rng(0, 1);
-	int ts = (st == 1)?0:1;
+	int bp = rng(0, 9); // bp is the position at which we break. So bp = 1 for abcd v wxyz would give axyz wbcd
+	int st = rng(0, 1); // st and ts represent which bit of the allele goes where. eg does it form axyz/wbcd or wbcd/axyz
+	int ts = (st == 1)?0:1; // The opposite of st
 	//printf("%d %d, %d\n", st, ts, bp);
 
 	int i;
 	for (i = 0; i < 10; i++) {
 		if (i == bp) {
-			st = (st == 1)?0:1;
+			st = (st == 1)?0:1; // Once we reach the break position we switch st and ts around so we read the other allele.
 			ts = (ts == 1)?0:1;
 		}
-		m.a[st][i] = n.a[0][i];
-		m.a[ts][i] = n.a[1][i];
+		m.a[st][i] = n.a[0][i]; // The new output sheltered load's st'th allele appends from 0, the ts appends from 1.
+		m.a[ts][i] = n.a[1][i]; // As st and ts flip at bp, this means that at bp they read from different alleles.
 	}
 	m.a[0][10] = n.a[0][10];
-	m.a[1][10] = n.a[1][10];
+	m.a[1][10] = n.a[1][10]; // Finally, we attach the terminator.
 
 	return m;
 }
@@ -359,6 +366,7 @@ struct RecombinationPair recombine(struct RecombinationPair n) {
  * Returns:  score								 *
  *----------------------------------------------------------------------*/
 int sl_score(char sheltered_load[11]) {
+	/* The score is simply given by the number of non 0 characters in the sheltered load string. So 0000000000 gives 0, ---00000000 gives 3. */
 	int i;
 	int score = 0;
 	for (i = 0; i < 10; i++) {
@@ -376,6 +384,9 @@ int sl_score(char sheltered_load[11]) {
  *----------------------------------------------------------------------*/
 
 char * sl_mutate(char sheltered_load[11]) {
+
+	/* We randomly mutate the sheltered load. i is the position at which mutation occurs. There is a 1 in 50 chance of mutation from - to 0, 49 in 50 of 0 to -. It might be worthwhile playing around with this check to see what impact it has */
+	// Also it'd probably be better to have it write straight into a pointer to the sheltered_load (eg char * sheltered_load[11] and pass &sheltered_load) but I haven't gotten around to this yet.
 	int i = rng(0, 9);
 	sheltered_load[i] = (rng(1, 50) <= 49)?'-':'0';
 	return sheltered_load;
@@ -423,29 +434,32 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 
 		float new_tea = p[0]->t_opt[randoms[4]] + deltas[1];
 		float new_teb = p[1]->t_opt[randoms[5]] + deltas[5];
-
+		/* This is new!!! */
+		/* Mate is only used for sexuals, so there are only ever two sheltered loads available from each.
+			Recombination pair (RP) a contains those from parent 0, RP b contains those from parent 1. These are recombined once in (25000/slm)/recombenefit (where slm is a modified which can be passed, and recombenefit refers to how much more likely recombination is than mutation) */
 		char new_sla[11];
 		char new_slb[11];
 		//printf("%d %d Recombining. %d %d.. %s ;; %s :: %s ;; %s\n", p[0]->ploidy, p[1]->ploidy, randoms[4], (randoms[4]==1)?0:1, p[0]->sheltered_load[randoms[4]], p[1]->sheltered_load[randoms[4]], p[0]->sheltered_load[(randoms[4]==1)?0:1], p[1]->sheltered_load[(randoms[4]==1)?0:1]);
-		struct RecombinationPair a;
+		struct RecombinationPair a; // Recombine between haplotypes in each parent.
 		struct RecombinationPair b;
 		strcpy(a.a[0], p[0]->sheltered_load[randoms[4]]);
-		strcpy(a.a[1], p[1]->sheltered_load[randoms[4]]);
-		strcpy(b.a[0], p[0]->sheltered_load[(randoms[4] == 1)?0:1]);
-		strcpy(b.a[1], p[1]->sheltered_load[(randoms[4] == 1)?0:1]);
+		strcpy(a.a[1], p[0]->sheltered_load[(randoms[4] == 0)?1:0]);
+		strcpy(b.a[0], p[1]->sheltered_load[randoms[5]]);
+		strcpy(b.a[1], p[1]->sheltered_load[(randoms[5] == 1)?0:1]);
 		//printf("A: %s ::: %s\n", a.a[0], a.a[1]);
 		//printf("B: %s ::: %s\n", b.a[0], b.a[1]);
 		//printf("REC\n");
+		//printf("%d %d %d\n", slm, recombenefit, (25000/slm)/recombenefit);
 		if (rng(1, (25000/slm)/recombenefit) == 35) {
 		//	printf("RECOMBINING\n");
-			a = recombine(a);
-			b = recombine(b);
+			a = sl_recombine(a);
+			b = sl_recombine(b);
 			//exit(0);
 		}
 		//printf("A: %s ::: %s\n", a.a[0], a.a[1]);
 		//printf("B: %s ::: %s\n", b.a[0], b.a[1]);
 		strcpy(new_sla, a.a[rng(0,1)]);
-		strcpy(new_slb, b.a[rng(0,1)]);
+		strcpy(new_slb, b.a[rng(0,1)]); /* And now we bring back the alleles, one from each parent (each of RP a and b) and assign them to the progeny. */
 		//printf("Recombined - %s, %s\n", new_sla, new_slb);
 
 		int new_d = (int) p[randoms[6]]->dispersal + deltas[2];
@@ -464,8 +478,9 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 		if (check_pos(new_x, new_y) != 1 && new_x < LANDSCAPE_X && new_x >= 0 && new_y >= 0 && new_y < LANDSCAPE_Y) {
 			if (polyploid == 1) { /* Ploidy will always be 2 but this allows it to double/halve*/
 				int sc = rng(0, 100);
+				/* 1 in 100 it can mutate up or down. At the moment haploids are impossible. */
 				if (sc == 5) {
-					progenitors[current].ploidy = (p[randoms[10]]->ploidy >= 2)?(p[randoms[10]]->ploidy)/2:p[randoms[10]]->ploidy;
+					progenitors[current].ploidy = (p[randoms[10]]->ploidy > 2)?(p[randoms[10]]->ploidy)/2:p[randoms[10]]->ploidy;
 				} else if (sc == 12) {
 					progenitors[current].ploidy = (p[randoms[10]]->ploidy <= 8)?2*(p[randoms[10]]->ploidy):p[randoms[10]]->ploidy;
 
@@ -484,8 +499,8 @@ int mate(struct Daisy *p[2], struct Daisy *progenitors, int v) {
 			strcpy(progenitors[current].sheltered_load[0], new_sla);
 			strcpy(progenitors[current].sheltered_load[1], new_slb);
 			/* Biological relevance? */
-			if (progenitors[current].ploidy > 2) {
-				for (q = 0; q < floor(progenitors[current].ploidy); q++) {
+			if (progenitors[current].ploidy > 2) { /* That is, if we've increased to N=4 then we need to duplicate all of our alleles. */
+				for (q = 0; q < floor(progenitors[current].ploidy); q++) { // I think this may actually quadruple them? But given they only express those up to ploidy it doesn't necessarily matter.
 					progenitors[current].t_opt[q*2] = (new_tea>0)?new_tea:0;
 					progenitors[current].t_opt[(2*q)+1] = (new_teb>0)?new_teb:0;
 					progenitors[current].colour[q*2] = ((new_ca > 0)?new_ca:0);
@@ -557,7 +572,7 @@ int s_reproduce(struct Daisy*d, struct Daisy*progenitors) {
 			if (x != d->pos_x && y != d->pos_y && daisy_map[x][y] != NULL) {
 				if (daisy_map[x][y]->living == 1 && daisy_map[x][y]->cumulated_resources > resources_for_reproducing) {
 					if (polyploid == 1) {
-						if (daisy_map[x][y]->ploidy == 2) {
+						if (daisy_map[x][y]->ploidy == 2) { /* Sexuals can only reproduce with other sexuals */
 							p[1] = daisy_map[x][y];
 							found = 1;
 						}
@@ -613,21 +628,24 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 		}
 
 
-
+		/* this has been modified to work for N=4-16*/
 		float new_colours[20];
 		float new_t_opt[20];
 		char new_sl[20][11];
+		int chosen_sl[20];
 		int lk;
-		for (lk = 0; lk < d->ploidy; lk++) {
+		for (lk = 0; lk < d->ploidy; lk++) { // We mutate all of our alleles and copy them across.
 			new_colours[lk] = d->colour[lk] + (pow(-1, rng(0, 1)) * colour_mutation);
 			if (new_colours[lk] > 1)
 				new_colours[lk] = 1;
 			if (new_colours[lk] < 0)
 				new_colours[lk] = 0;
 			new_t_opt[lk] = d->t_opt[lk] + (pow(-1, rng(0, 1)) * temperature_mutation);
-			strcpy(new_sl[lk], d->sheltered_load[lk]); // This is where we would recombine but as the alleles [0] and [0] from both parents are the same parent there is nothing to recombine. At the moment recombination is only between the same n - so we treat t_opt[0], t_opt[1] etc as being on different chromosomes, which recombine with t_opt[0] and t_opt[1] respectively (eg no [0]->[1] recombination).
+			chosen_sl[lk] = 0;
+
+			strcpy(new_sl[lk], d->sheltered_load[lk]);
 		}
-		if (polyploid == 1 && d->ploidy < 10) {
+		if (polyploid == 1 && d->ploidy < 10) { // We then do this again, just in case the ploidy level mutates.
 			for (lk = d->ploidy; lk < 2*(d->ploidy); lk++) {
 
 				new_colours[lk] = d->colour[lk - (d->ploidy)] + (pow(-1, rng(0, 1)) * colour_mutation);
@@ -637,13 +655,68 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 					new_colours[lk] = 0;
 				new_t_opt[lk] = d->t_opt[lk - (d->ploidy)] + (pow(-1, rng(0, 1)) * temperature_mutation);
 				strcpy(new_sl[lk], d->sheltered_load[lk - (d->ploidy)]);
+				chosen_sl[lk] = 0;
 			}
 
+		}
+
+
+			// Recombination code here
+				// So I have say
+					// [0] - "ABCD"
+					// [1] - "1234"
+					// [2] - "WXYZ"
+					// [3] - "7890"
+					// Copy these into the progeny.
+					// For N/2 times do
+					// Then. Generate a random number, 0 to 3, ignoring those which have already been used. Generate another. If the first != second then
+							// recombine.
+						// Output.
+
+	// From above, new_sl already contains them. Once an allele is out of the pool, add to chosen_sl.
+		int sl_a = 19;
+		int sl_b = 19;
+		int nl = 0;
+		//printf("%d\n", d->ploidy/2);
+		if (d->ploidy > 1){
+			for (i = 0; i < (d->ploidy > 10)?d->ploidy / 2:d->ploidy; i++) { 						// For each ploidy level (this just reflects frequency)...
+				//printf("HELLO\n");
+				//while ((chosen_sl[sl_a] == 1 || chosen_sl[sl_a] == 1 || sl_a == sl_b) && nl < 5) {
+				sl_a = rng(0, (d->ploidy > 10)?d->ploidy:2*d->ploidy-1);									// We set up sl_a and sl_b to be random alleles
+				sl_b = rng(0, (d->ploidy > 10)?d->ploidy:2*d->ploidy-1);
+				if (sl_a == sl_b) {																												// If these are the same then we make sl_a go up or down depending on what it is in relation to the ploidy level. So sl_a = 4 with ploidy=8 would go up, sl_a=12 down.
+					sl_a = (sl_a > d->ploidy/2)?sl_a-1:sl_a+1;
+				}
+				if (chosen_sl[sl_a] == 0 && chosen_sl[sl_b] == 0) { 											// If they haven't been chosen before...
+				//	nl ++;
+				//}
+					nl = 0;
+
+					//printf("%d %d -- %d %d\n", sl_a, sl_b, chosen_sl[sl_a], chosen_sl[sl_b]);
+
+					struct RecombinationPair a;
+					strcpy(a.a[0], new_sl[sl_a]);
+					strcpy(a.a[1], new_sl[sl_b]);
+					//printf("W");
+					if (rng(1, (int) (25000/slm)/recombenefit) == 35) {											// Then we recombine them exactly as before.
+						a = sl_recombine(a);
+						//printf("%s %s -> %s %s\n", new_sl[sl_a], new_sl[sl_b], a.a[0], a.a[1]);
+					}
+					//printf("L");
+					int x = rng(0, 1);
+					strcpy(new_sl[(x==0)?sl_a:sl_b], a.a[0]);
+					strcpy(new_sl[(x==0)?sl_b:sl_a], a.a[1]);
+					//printf("F\n");
+					chosen_sl[sl_a] = 1;																										// And we set chosen_sl such that they can't recombine again this time.
+					chosen_sl[sl_b] = 1;																										// So [1, 2] can recombine but not then [2, 3], so if you have {ABCD, abcd, 1234} you can end up with abCD ACcd or AB34 but not aBC4.
+				}
+			}
 		}
 
 		if (diploid == 0) {
 			new_colours[0] = new_colours[1];
 			new_t_opt[0] = new_t_opt[1];
+			// Add sl here too
 		}
 
 		int new_d = (int) d->dispersal + deltas[2];
@@ -661,9 +734,12 @@ int reproduce(struct Daisy * d, struct Daisy * progenitors) {
 
 			/* Evolve ploidy. 1 in 20 increase ploidy level by multiplication, 1 in 20 decrease by division. Can't go above 16 or below 1.*/
 			if (polyploid == 1) {
-				int sc = rng(0, 100);
+				int sc = rng(0, 50);
 				if (sc == 5) {
+					//printf("Mutation down.\n");
 					progenitors[current].ploidy = (d->ploidy >= 2)?(d->ploidy)/2:d->ploidy;
+					//if (progenitors[current].ploidy == 2)
+						//printf("It can go down.\n");
 				} else if (sc == 12) {
 					progenitors[current].ploidy = (d->ploidy <= 8)?2*(d->ploidy):d->ploidy;
 
@@ -785,7 +861,7 @@ int grow(struct Daisy * daisy) {
 	daisy->local_te = 0.7*albedo_temp + 0.3*(temperature_map[daisy->pos_x][daisy->pos_y]);
 	/* 70% of the local temperature is due to the daisy, 30% is due to the thermal insulation of the ground */
 	temperature_map[daisy->pos_x][daisy->pos_y] = daisy->local_te;
-	float opt_t = (polyploid == 1)?daisy->t_opt[(int) t_opt(daisy, daisy->local_te)]:t_opt(daisy, daisy->local_te);
+	float opt_t = (polyploid == 1)?daisy->t_opt[(int) t_opt(daisy, daisy->local_te)]:t_opt(daisy, daisy->local_te); /* This uses the index if polyploid is enabled*/
 
 	/* spontaneous mutations in sheltered load, only on non expressed alleles. */
 	int i;
@@ -796,21 +872,21 @@ int grow(struct Daisy * daisy) {
 		int ot = (int) t_opt(daisy, daisy->local_te);
 
 		for (i = 0; i < daisy->ploidy; i++) {
-			if (rng(1, 25000/slm) == 35) {
+			if (rng(1, (int)25000/slm) == 35) {
 				// Then we mutate this one.
 				//daisy->sheltered_load[i] += (rng(0, 5) == 1)?-1:1;
 				//printf("ORIGINAL %s\n", daisy->sheltered_load[i]);
-				strcpy(daisy->sheltered_load[i], sl_mutate(daisy->sheltered_load[i]));
 
+				strcpy(daisy->sheltered_load[i], sl_mutate(daisy->sheltered_load[i])); // We mutate them at a low frequency.
 				//printf("Mutated sheltered load, now %f\n", daisy->sheltered_load[i]);
 			}
 		}
-		if (sl_score(daisy->sheltered_load[ot]) > 4) {
+		if (sl_score(daisy->sheltered_load[ot]) > 4) { // This was just for testing that they actually mutated. They do.
 			//printf("%d\n", sl_score(daisy->sheltered_load[ot]));
 			//printf("%s\n", daisy->sheltered_load[ot]);
 		}
 
-		delta_resources = (5 - pow(daisy->local_te - opt_t, 2) - (slmmod *sl_score(daisy->sheltered_load[ot]))) * nutrient_gradient((float) daisy->pos_x/LANDSCAPE_X);
+		delta_resources = (5 - pow(daisy->local_te - opt_t, 2) - (slmmod *sl_score(daisy->sheltered_load[ot]))) * nutrient_gradient((float) daisy->pos_x/LANDSCAPE_X); // Take into account the sheltered load reduction in this.
 	} else {
 		delta_resources = (5 - pow(daisy->local_te - opt_t, 2)) * nutrient_gradient((float) daisy->pos_x/LANDSCAPE_X);
 	}
@@ -906,19 +982,11 @@ void run(int n) {
 			if (max_y < daisies[i].pos_y)
 				max_y = daisies[i].pos_y;
 
-			grow(&daisies[i]);
 
 		}
 	}
 
-
-
-
-	/* Reproduce */
-	struct Daisy * sp[2];
-	struct Daisy new_daisies[MAX_PROGENY];
 	average_t_opt = average_t_opt/n_c;
-
 	float divergence = 0;
 	float sd_divergence = 0;
 	float average_sl = 0;
@@ -959,6 +1027,20 @@ void run(int n) {
 	sd_divergence = sqrt(sd_divergence/n_c);
 	ploidy_sd = sqrt(ploidy_sd/n_c);
 
+
+
+
+
+
+	/* Reproduce */
+	struct Daisy * sp[2];
+	struct Daisy new_daisies[MAX_PROGENY];
+
+	for (i = 0; i < num_daisies; i++) {
+		if (daisies[i].living == 1) {
+			grow(&daisies[i]);
+		}
+	}
 
 	float rfr = resources_for_reproducing;
 
@@ -1017,7 +1099,7 @@ void run(int n) {
 		n_count[1] = 1000000000;
 	/* Output to file */
 	fprintf(vertical, "%d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %0.2f, %d, %d, %d, %d, %d\n",
-		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, num_alive, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt, average_ploidy, ploidy_sd, average_sl, numberof[0], numberof[1], numberof[2], numberof[3], numberof[4]);
+		n, global_temperature, (float) n_t_opta[0]/n_count[0], (float) n_t_optb[0]/n_count[0], (float)n_t_opta[1]/n_count[1], (float)n_t_optb[1]/n_count[1], (float)n_colour[0]/n_count[0], (float)n_colour[1]/n_count[1], (n_count[0] != 1000000000)?n_count[0]:0, (n_count[1] != 1000000000)?n_count[1]:0, min_y, max_y, n_c, (float) n_progeny[0]/n_count[0], (float) n_progeny[1]/n_count[1], (float) n_dispersal[0]/n_count[0], (float) n_dispersal[1]/n_count[1], (float) n_mutation_rate[0]/n_count[0], (float) n_mutation_rate[1]/n_count[1], radiation_intensity, white, black, grey, num_cheat, switching, sd_global_temp, divergence, sd_divergence, average_t_opt, average_ploidy, ploidy_sd, average_sl, numberof[0], numberof[1], numberof[2], numberof[3], numberof[4]);
 
 
 	/* Cull the number of daisies down to the carrying capacity */
@@ -1061,7 +1143,7 @@ void setup(void) {
 			daisies[num_daisies].colour[1] = initial_colour;
 			daisies[num_daisies].t_opt[0] = initial_t_opt;
 			daisies[num_daisies].t_opt[1] = initial_t_opt;
-			strcpy(daisies[num_daisies].sheltered_load[0], "0000000000");
+			strcpy(daisies[num_daisies].sheltered_load[0], "0000000000");								// Give them all a clean sheltered load.
 			strcpy(daisies[num_daisies].sheltered_load[1], "0000000000");
 			daisies[num_daisies].dispersal = initial_dispersal;
 			daisies[num_daisies].ploidy = diploid + 1;
@@ -1193,6 +1275,15 @@ int main(int argc, char* argv[]) {
 			}
 
 			radiation_intensity = 1 + zl;
+		} else if (radia == 4) {
+			float qwe = oscillation_wavelength;
+			radiation_intensity = 1 + (psdsd * sin((3.14*(float) pl)/qwe)) + zl;
+			if (i > 500 && i < 500 + 24000)
+				pl++;
+			if (i > 500 && i < 12000)
+				zl += 0.0005;
+			if (i > 12000 && i < 24000)
+				zl -= 0.0005;
 		}
 
 		if (peak_verb == 1) {
